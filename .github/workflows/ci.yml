@@ -150,8 +150,20 @@ jobs:
     env:
       py: /opt/python/${{ matrix.pyver }}/bin/python
       img: quay.io/pypa/manylinux2014_${{ matrix.arch }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Checkout submodules
+      run: |
+        git submodule init
+        git submodule update
+    - name: Set up QEMU
+      id: qemu
+      uses: docker/setup-qemu-action@v1
       
     services:
+      # Label used to access the service container
       redis:
         # Docker Hub image
         image: redis
@@ -177,27 +189,12 @@ jobs:
           --health-retries 5
         # Maps tcp port 5432 on service container to the host
         ports:
-          - 5432:5432
-
-   #env:
-     #SENTRY_PYTHON_TEST_POSTGRES_USER: postgres
-     #SENTRY_PYTHON_TEST_POSTGRES_PASSWORD: sentry
-     #SENTRY_PYTHON_TEST_POSTGRES_NAME: ci_test
-
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-    - name: Checkout submodules
-      run: |
-        git submodule init
-        git submodule update
-    - name: Set up QEMU
-      id: qemu
-      uses: docker/setup-qemu-action@v1
+          - 5432:5432 
     #- name: Install tools
       #run: |
         #docker run --rm -v ${{ github.workspace }}:/ws:rw --workdir=/ws \
           #${{ env.img }} ${{ env.py }} -m pip install -U  pip build
+          
     - name: setup
       env:
         PGHOST: localhost
