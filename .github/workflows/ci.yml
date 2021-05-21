@@ -196,20 +196,20 @@ jobs:
         #docker run --rm -v ${{ github.workspace }}:/ws:rw --workdir=/ws \
           #${{ env.img }} ${{ env.py }} -m pip install -U  pip build
     - name: setup
-        env:
-          PGHOST: localhost
-          PGPASSWORD: sentry
-        run: |
-          docker run --rm -v ${{ github.workspace }}:/ws:rw --workdir=/ws \
-          ${{ env.img }} \
-          bash -exc '\
-          psql -c 'create database travis_ci_test;' -U postgres
-          psql -c 'create database test_travis_ci_test;' -U postgres
+      env:
+        PGHOST: localhost
+        PGPASSWORD: sentry
+      run: |
+        docker run --rm -v ${{ github.workspace }}:/ws:rw --workdir=/ws \
+        ${{ env.img }} \
+        bash -exc '\
+        psql -c 'create database travis_ci_test;' -U postgres
+        psql -c 'create database test_travis_ci_test;' -U postgres
     - name: run tests
-        env:
-          CI_PYTHON_VERSION: ${{ matrix.python-version }}
-        timeout-minutes: 45
-        run: |
+      env:
+        CI_PYTHON_VERSION: ${{ matrix.python-version }}
+      timeout-minutes: 45
+      run: |
           docker run --rm -v ${{ github.workspace }}:/ws:rw --workdir=/ws \
           ${{ env.img }} \
           bash -exc '${{ env.py }} -m pip install virtualenv && ${{ env.py }} -m venv .env && \
