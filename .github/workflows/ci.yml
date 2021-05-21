@@ -77,10 +77,9 @@ jobs:
     strategy:
       matrix:
         python-version:
-          ["2.7", "3.4", "3.5", "3.6", "3.7", "3.8", "3.9"]
+          ["3.6"]
 
     services:
-      # Label used to access the service container
       redis:
         # Docker Hub image
         image: redis
@@ -139,3 +138,87 @@ jobs:
           coverage combine .coverage*
           coverage xml -i
           codecov --file coverage.xml
+          
+  test-aarch64:
+    name: "Test ${{ matrix.pyver }} aarch64"
+    strategy:
+      matrix:
+        pyver: [cp36-cp36m, cp37-cp37m, cp38-cp38, cp39-cp39]
+        arch: [aarch64]
+      fail-fast: false
+    runs-on: ubuntu-latest
+    services:
+      # Label used to access the service container
+      redis:
+        # Docker Hub image
+        image: redis
+        # Set health checks to wait until redis has started
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          # Maps port 6379 on service container to the host
+          - 6379:6379
+
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_PASSWORD: sentry
+        # Set health checks to wait until postgres has started
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        # Maps tcp port 5432 on service container to the host
+        ports:
+          - 5432:5432
+    
+    env:
+      py: /opt/python/${{ matrix.pyver }}/bin/python
+      img: quay.io/pypa/manylinux2014_${{ matrix.arch }}
+      SENTRY_PYTHON_TEST_POSTGRES_USER: postgres
+      SENTRY_PYTHON_TEST_POSTGRES_PASSWORD: sentry
+      SENTRY_PYTHON_TEST_POSTGRES_NAME: ci_tes
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Checkout submodules
+      run: |
+        git submodule init
+        git submodule update
+    - name: Set up QEMU
+      id: qemu
+      uses: docker/setup-qemu-action@v1
+    #- name: Install tools
+      #run: |
+        #docker run --rm -v ${{ github.workspace }}:/ws:rw --workdir=/ws \
+          #${{ env.img }} ${{ env.py }} -m pip install -U  pip build
+    - name: setup
+        env:
+          PGHOST: localhost
+          PGPASSWORD: sentry
+        run: |
+          docker run --rm -v ${{ github.workspace }}:/ws:rw --workdir=/ws \
+          ${{ env.img }} \
+          bash -exc '\
+          psql -c 'create database travis_ci_test;' -U postgres
+          psql -c 'create database test_travis_ci_test;' -U postgres
+    - name: run tests
+        env:
+          CI_PYTHON_VERSION: ${{ matrix.python-version }}
+        timeout-minutes: 45
+        run: |
+          docker run --rm -v ${{ github.workspace }}:/ws:rw --workdir=/ws \
+          ${{ env.img }} \
+          bash -exc '${{ env.py }} -m pip install virtualenv && ${{ env.py }} -m venv .env && \
+          source .env/bin/activate && \
+          pip install codecov tox && \
+          coverage erase && \
+          ./scripts/runtox.sh '' --cov=tests --cov=sentry_sdk --cov-report= --cov-branch && \
+          coverage combine .coverage* && \
+          coverage xml -i && \
+          codecov --file coverage.xml && \
+          deactivate'
